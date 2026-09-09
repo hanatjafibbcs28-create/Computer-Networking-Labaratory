@@ -1,0 +1,83 @@
+#include <stdlib.h>
+
+// Comparison function for sorting long long values safely
+int compare(const void* a, const void* b) {
+    long long diff = *(long long*)a - *(long long*)b;
+    if (diff < 0) return -1;
+    if (diff > 0) return 1;
+    return 0;
+}
+
+/**
+ * Note: The returned array must be malloced, assume caller calls free().
+ */
+double* medianSlidingWindow(int* nums, int numsSize, int k, int* returnSize) {
+    *returnSize = numsSize - k + 1;
+    double* result = (double*)malloc((*returnSize) * sizeof(double));
+    
+    // Allocate space for the current sliding window buffer
+    long long* window = (long long*)malloc(k * sizeof(long long));
+    
+    // 1. Initialize and sort the very first window
+    for (int i = 0; i < k; i++) {
+        window[i] = nums[i];
+    }
+    qsort(window, k, sizeof(long long), compare);
+    
+    // Calculate median for the first window
+    if (k % 2 == 1) {
+        result[0] = (double)window[k / 2];
+    } else {
+        result[0] = ((double)window[k / 2 - 1] + (double)window[k / 2]) / 2.0;
+    }
+    
+    // 2. Slide the window across the rest of the array
+    for (int i = k; i < numsSize; i++) {
+        long long out_num = nums[i - k];
+        long long in_num = nums[i];
+        
+        // --- PHASE 1: Find and Remove out_num ---
+        int remove_idx = -1;
+        for (int j = 0; j < k; j++) {
+            if (window[j] == out_num) {
+                remove_idx = j;
+                break;
+            }
+        }
+        
+        // Shift remaining items left to fill the gap (leaves last slot k-1 free)
+        for (int j = remove_idx; j < k - 1; j++) {
+            window[j] = window[j + 1];
+        }
+        
+        // --- PHASE 2: Find Insertion Position for in_num ---
+        // Binary search to find where in_num fits in the now (k-1) sized window
+        int low = 0, high = k - 2;
+        int insert_idx = k - 1; // Default to the end if it's the largest
+        while (low <= high) {
+            int mid = low + (high - low) / 2;
+            if (window[mid] >= in_num) {
+                insert_idx = mid;
+                high = mid - 1; // Look left for insertion point
+            } else {
+                low = mid + 1;
+            }
+        }
+        
+        // Shift elements right from insert_idx to make room for in_num
+        for (int j = k - 1; j > insert_idx; j--) {
+            window[j] = window[j - 1];
+        }
+        window[insert_idx] = in_num;
+        
+        // --- PHASE 3: Compute Median ---
+        if (k % 2 == 1) {
+            result[i - k + 1] = (double)window[k / 2];
+        } else {
+            result[i - k + 1] = ((double)window[k / 2 - 1] + (double)window[k / 2]) / 2.0;
+        }
+    }
+    
+    free(window);
+    return result;
+}
